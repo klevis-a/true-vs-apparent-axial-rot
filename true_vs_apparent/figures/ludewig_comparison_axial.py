@@ -5,36 +5,15 @@ following keys must be present:
 
 logger_name: Name of the loggger set up in logging.ini that will receive log messages from this script.
 biplane_vicon_db_dir: Path to the directory containing the biplane and vicon CSV files.
+ludewig_data: Path to files containing GH and ST trajectories for CA, SA, and FE from Ludewig et al.
 excluded_trials: Trial names to exclude from analysis.
+torso_def: Anatomical definition of the torso: v3d for Visual3D definition, isb for ISB definition.
+dtheta_fine: Incremental angle (deg) to use for fine interpolation between minimum and maximum HT elevation analyzed.
+dtheta_coarse: Incremental angle (deg) to use for coarse interpolation between minimum and maximum HT elevation analyzed.
+backend: Matplotlib backend to use for plotting (e.g. Qt5Agg, macosx, etc.).
+dpi: Dots (pixels) per inch for generated figure. (e.g. 300)
+fig_file: Path to file where to save figure.
 """
-
-import quaternion as q
-from biokinepy.trajectory import PoseTrajectory
-
-
-def create_gh_traj(df):
-    q_elev = q.from_rotation_vector(np.deg2rad(df['Elevation'].to_numpy())[..., np.newaxis] * np.array([1, 0, 0]))
-    q_poe = q.from_rotation_vector(np.deg2rad(df['PoE'].to_numpy())[..., np.newaxis] * np.array([0, 0, 1]))
-    q_axial = q.from_rotation_vector(np.deg2rad(df['Axial'].to_numpy())[..., np.newaxis] * np.array([0, 1, 0]))
-
-    quat_traj = q.as_float_array(q_elev * q_poe * q_axial)
-    pos = np.zeros((q_elev.size, 3))
-    traj = PoseTrajectory.from_quat(pos, quat_traj)
-    traj.long_axis = np.array([0, 1, 0])
-    return traj
-
-
-def create_st_traj(df):
-    q_repro = q.from_rotation_vector(np.deg2rad(df['ReProtraction'].to_numpy())[..., np.newaxis] * np.array([0, 1, 0]))
-    q_latmed = q.from_rotation_vector(np.deg2rad(df['LatMedRot'].to_numpy())[..., np.newaxis] * np.array([1, 0, 0]))
-    q_tilt = q.from_rotation_vector(np.deg2rad(df['Tilt'].to_numpy())[..., np.newaxis] * np.array([0, 0, 1]))
-
-    quat_traj = q.as_float_array(q_repro * q_latmed * q_tilt)
-    pos = np.zeros((q_repro.size, 3))
-    traj = PoseTrajectory.from_quat(pos, quat_traj)
-    traj.long_axis = np.array([0, 0, 1])
-    return traj
-
 
 if __name__ == '__main__':
     if __package__ is None:
@@ -44,11 +23,10 @@ if __name__ == '__main__':
     import distutils.util
     from pathlib import Path
     import numpy as np
-    import pandas as pd
     import matplotlib.pyplot as plt
     from true_vs_apparent.common.plot_utils import init_graphing, make_interactive, mean_sd_plot, style_axes
     from true_vs_apparent.common.database import create_db, BiplaneViconSubject, pre_fetch
-    from true_vs_apparent.common.analysis_utils import prepare_db, extract_sub_rot
+    from true_vs_apparent.common.analysis_utils import prepare_db, extract_sub_rot, read_ludewig_data
     from true_vs_apparent.common.json_utils import get_params
     from true_vs_apparent.common.arg_parser import mod_arg_parser
     import logging
@@ -62,29 +40,19 @@ if __name__ == '__main__':
     if not bool(distutils.util.strtobool(os.getenv('VARS_RETAINED', 'False'))):
         # ready db
         db = create_db(params.biplane_vicon_db_dir, BiplaneViconSubject, include_anthro=True)
-        if params.excluded_trials:
-            db = db[~db['Trial_Name'].str.contains('|'.join(params.excluded_trials))]
+        exc_trials = ["O45_003_CA_t01", "O45_003_SA_t02", "O45_003_FE_t02", "U35_010_FE_t01"]
+        db = db[~db['Trial_Name'].str.contains('|'.join(exc_trials))]
         db['Trial'].apply(pre_fetch)
 
     # logging
     fileConfig(config_dir / 'logging.ini', disable_existing_loggers=False)
     log = logging.getLogger(params.logger_name)
 
-    # read Ludewig's data
-    convert_fnc = {'gh': create_gh_traj, 'st': create_st_traj}
-    ludewig_data = {}
-    for traj_name, motions in params.ludewig_data._asdict().items():
-        ludewig_data[traj_name] = {}
-        for motion_name, file_path in motions._asdict().items():
-            df = pd.read_csv(file_path, dtype=np.float)
-            ludewig_data[traj_name][motion_name] = df
-            traj = convert_fnc[traj_name](df)
-            df['true_axial'] = np.rad2deg(traj.true_axial_rot)
-
     # prepare database
+    ludewig_data = read_ludewig_data(params.ludewig_data)
     ludewig_ht = ludewig_data['gh']['ca']['HT_Elev'].to_numpy()
     db_elev = db.loc[db['Trial_Name'].str.contains('_CA_|_SA_|_FE_')].copy()
-    prepare_db(db_elev, params.torso_def, True, params.dtheta_fine, params.dtheta_coarse,
+    prepare_db(db_elev, params.torso_def, 'AC', params.dtheta_fine, params.dtheta_coarse,
                [ludewig_ht[0], ludewig_ht[-1]])
 
 #%%

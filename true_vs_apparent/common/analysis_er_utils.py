@@ -5,37 +5,47 @@ from true_vs_apparent.common.analysis_utils import get_trajs
 from true_vs_apparent.common.interpolation import set_long_axis_hum
 
 
-def interp_axial_rot_er(df_row, traj_name, sub_rot, extract_fnc, delta=0.1):
+def interp_axial_rot_er(df_row: pd.Series, traj_name: str, sub_rot: Union[None, int], extract_fnc: Callable,
+                        delta: float = 0.1) -> np.ndarray:
+    """Interpolate the axial rotation trajectory specified by traj_name (gh, ht, st), sub_rot (0, 1, 2, None),
+    extract_fnc (extraction function), and delta percentage intervals between 0% (Start of Motion) and 100%
+    (maximum axial rotation)."""
     y = extract_fnc(df_row, traj_name, sub_rot)
     start_idx = df_row['Start'] - 1
     stop_idx = df_row['Stop'] - 1
     y = y[start_idx:stop_idx+1]
     y = y - y[0]
-    frame_nums = np.arange(start_idx, stop_idx+1)
+    max_idx = np.argmax(np.absolute(y))
+    frame_nums = np.arange(0, max_idx+1)
     num_frames = frame_nums[-1] - frame_nums[0] + 1
     # divide by (num_frames - 1) because I want the last frame to be 100
     frame_nums_norm = ((frame_nums - frame_nums[0]) / (num_frames - 1)) * 100
     desired_frames = np.arange(0, 100 + delta, delta)
-    return np.interp(desired_frames, frame_nums_norm, y, np.nan, np.nan)
+    return np.interp(desired_frames, frame_nums_norm, y[0:max_idx+1], np.nan, np.nan)
 
 
-def extract_true(df_row, traj_name, sub_rot):
+def extract_true(df_row: pd.Series, traj_name: str, sub_rot: Union[None, int]) -> np.ndarray:
+    """Extract HT or GH true axial rotation."""
     return df_row[traj_name].true_axial_rot
 
 
-def extract_isb(df_row, traj_name, sub_rot):
+def extract_isb(df_row: pd.Series, traj_name: str, sub_rot: Union[None, int]) -> np.ndarray:
+    """Extract HT or GH ISB axial rotation."""
     return df_row[traj_name].euler.yxy_intrinsic[:, 2]
 
 
-def extract_phadke(df_row, traj_name, sub_rot):
+def extract_phadke(df_row: pd.Series, traj_name: str, sub_rot: Union[None, int]) -> np.ndarray:
+    """Extract HT or GH Phadke axial rotation."""
     return df_row[traj_name].euler.xzy_intrinsic[:, 2]
 
 
-def extract_isb_norm(df_row, traj_name, sub_rot):
+def extract_isb_norm(df_row: pd.Series, traj_name: str, sub_rot: Union[None, int]) -> np.ndarray:
+    """Extract PoE Adjusted ISB axial rotation."""
     return df_row[traj_name].euler.yxy_intrinsic[:, 2] + df_row[traj_name].euler.yxy_intrinsic[:, 0]
 
 
-def extract_st_induced(df_row, traj_name, sub_rot):
+def extract_st_induced(df_row: pd.Series, traj_name: str, sub_rot: Union[None, int]) -> np.ndarray:
+    """Extract ST-induced true axial rotation."""
     return df_row[traj_name][:, sub_rot]
 
 
@@ -75,10 +85,12 @@ plot_directives = {
     'gh_phadke': PlotDirective('gh', extract_phadke, None, 'Axial Rotation (deg)', "GH xz'y'' Axial Rotation")}
 
 
-def ready_er_db(db, torso_def, use_ac, erar_endpts_file, era90_endpts_file, dtheta_fine):
+def ready_er_db(db: pd.DataFrame, torso_def: str, scap_lateral: str, erar_endpts_file: str, era90_endpts_file: str,
+                dtheta_fine: float) -> pd.DataFrame:
+    """Ready external rotation database for analysis."""
     db_er = db.loc[db['Trial_Name'].str.contains('_ERa90_|_ERaR_')].copy()
     db_er['ht'], db_er['gh'], db_er['st'] = \
-        zip(*db_er['Trial'].apply(get_trajs, args=[db_er.attrs['dt'], torso_def, use_ac]))
+        zip(*db_er['Trial'].apply(get_trajs, args=[db_er.attrs['dt'], torso_def, scap_lateral]))
     db_er['ht'].apply(set_long_axis_hum)
     db_er['gh'].apply(set_long_axis_hum)
 

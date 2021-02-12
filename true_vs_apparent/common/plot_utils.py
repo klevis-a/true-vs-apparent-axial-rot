@@ -150,6 +150,7 @@ def style_axes_add_right(ax: matplotlib.axes.Axes, y_label: Union[str, None]):
 
 
 def extract_sig(spm_test: _SPM0Dinference, x: np.ndarray) -> str:
+    """Create a string describing where spm_test is significant in the domain of x."""
     sig = np.logical_or(spm_test.z < -spm_test.zstar, spm_test.z > spm_test.zstar)
     run_values, run_starts, run_lengths = find_runs(sig)
     run_starts_sign = run_starts[run_values]
@@ -160,8 +161,25 @@ def extract_sig(spm_test: _SPM0Dinference, x: np.ndarray) -> str:
     return '\n'.join(sec)
 
 
+def sig_filter(spm_test: _SPM0Dinference, x: np.ndarray) -> np.ndarray:
+    """Return a vector which has NaNs everywhere apart where spm_test is significant in the domain of x."""
+    x_ret = np.copy(x)
+    x_ret[np.logical_and(spm_test.z > -spm_test.zstar, spm_test.z < spm_test.zstar)] = np.nan
+    return x_ret
+
+
+def output_spm_p(spm_test: _SPM0Dinference):
+    ret_str = ''
+    for idx, cluster in enumerate(spm_test.clusters):
+        ret_str += 'Cluster {}: {:.5f}'.format(idx + 1, cluster.P)
+    if hasattr(spm_test, 'p_set'):
+        ret_str += 'Set-Level: {:.5f}'.format(spm_test.p_set)
+    return ret_str
+
+
 # from https://stackoverflow.com/a/31548752/2577053
 class HandlerTupleVertical(HandlerTuple):
+    """Class which creates one figure legend entry from multiple lines bundled in a Tuple."""
     def __init__(self, **kwargs):
         HandlerTuple.__init__(self, **kwargs)
 

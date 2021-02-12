@@ -1,0 +1,44 @@
+! Below the humerothoracic angular velocity is expressed in the humerus coordinate system (body angular velocity).
+! This is equivalent to projecting the humerothoracic angular velocity vector onto each axis of the moving frame of the humerus.
+! Below humerothoracic (REFERENCE_SEGMENT=RTA, SEGMENT=RAR) is being computed. If you wish to compute glenohumeral
+! true axial rotation simply switch the REFERENCE_SEGMENT to the scapula. But, do not change the RESOLUTION_COORDINATE_SYSTEM, 
+! this must remain as the humerus (RAR).
+Compute_Model_Based_Data
+/RESULT_NAME=AngVel_BodyCS
+/FUNCTION=JOINT_VELOCITY
+/SEGMENT=RAR
+/REFERENCE_SEGMENT=RTA
+/RESOLUTION_COORDINATE_SYSTEM=RAR
+! /USE_CARDAN_SEQUENCE=FALSE
+! /NORMALIZATION=FALSE
+! /NORMALIZATION_METHOD=
+! /NORMALIZATION_METRIC=
+! /NEGATEX=FALSE
+! /NEGATEY=FALSE
+! /NEGATEZ=FALSE
+! /AXIS1=X
+! /AXIS2=Y
+! /AXIS3=Z
+! /TREADMILL_DATA=FALSE
+! /TREADMILL_DIRECTION=UNIT_VECTOR(0,1,0)
+! /TREADMILL_SPEED=0.0
+;
+
+! Within Visual3D there doesn't seem a way to specify which component of AngVel_BodyCS to integrate, so the resulting signal (TrueAxial)
+! will have 3 components. The component that specifies rotation around the longitudal axis of the humerus (true axial rotation) is the 
+! component that corresponds to the longitudal axis of the humerus (e.g. if the longitudal axis of the humeru is specified by the y-axis, 
+! then the 2nd component of TrueAxial will contain true axial rotation).
+Indefinite_Integral
+/SIGNAL_TYPES=LINK_MODEL_BASED
+/SIGNAL_FOLDER=ORIGINAL
+/SIGNAL_NAMES=AngVel_BodyCS
+! /RESULT_TYPES=
+! /RESULT_FOLDERS=PROCESSED
+/RESULT_NAME=TrueAxial
+! /APPLY_AS_SUFFIX_TO_SIGNAL_NAME=FALSE
+! /EVENT_SEQUENCE=
+! /EXCLUDE_EVENTS=
+! /EVENT_INSTANCE=0
+! /INITIAL_VALUE=0
+;
+

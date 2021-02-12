@@ -10,3 +10,4 @@ lazy~=1.4
 scipy~=1.5.4
 Pillow~=8.0.1
 kaleido~=0.1.0
+ipynb-path~=0.1.4

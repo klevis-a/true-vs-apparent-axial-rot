@@ -1,4 +1,4 @@
-from typing import Union, Tuple, Sequence
+from typing import Union, Tuple, Sequence, Dict
 import pandas as pd
 import numpy as np
 import quaternion as q
@@ -6,7 +6,7 @@ from biokinepy.cs import ht_inv
 from biokinepy.segment_cs import scapula_cs_isb
 from biokinepy.trajectory import PoseTrajectory
 from true_vs_apparent.common.database import trajectories_from_trial, BiplaneViconTrial
-from true_vs_apparent.common.interpolation import ShoulderTrajInterp, interp_vec_traj
+from true_vs_apparent.common.interpolation import ShoulderTrajInterp
 from true_vs_apparent.common.up_down import analyze_up_down
 from true_vs_apparent.common.python_utils import rgetattr
 import logging
@@ -14,19 +14,18 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def get_trajs(trial: BiplaneViconTrial, dt: float, torso_def: str, use_ac: bool = False) \
+def get_trajs(trial: BiplaneViconTrial, dt: float, torso_def: str, scap_lateral: str = 'GC') \
         -> Tuple[PoseTrajectory, PoseTrajectory, PoseTrajectory]:
     """Return HT, GH, and ST trajectory from a given trial."""
     torso, scap, hum = trajectories_from_trial(trial, dt, torso_def=torso_def)
     # this is not efficient because I recompute the scapula CS for each trial, but it can be done at the subject level
     # however, in the grand scheme of things, this computation is trivial
-    if use_ac:
-        scap_gc = scapula_cs_isb(trial.subject.scapula_landmarks['GC'], trial.subject.scapula_landmarks['IA'],
-                                 trial.subject.scapula_landmarks['TS'])
-        scap_ac = scapula_cs_isb(trial.subject.scapula_landmarks['AC'], trial.subject.scapula_landmarks['IA'],
-                                 trial.subject.scapula_landmarks['TS'])
-        scap_gc_ac = ht_inv(scap_gc) @ scap_ac
-        scap = PoseTrajectory.from_ht(scap.ht @ scap_gc_ac[np.newaxis, ...], dt=scap.dt, frame_nums=scap.frame_nums)
+    scap_gc = scapula_cs_isb(trial.subject.scapula_landmarks['GC'], trial.subject.scapula_landmarks['IA'],
+                             trial.subject.scapula_landmarks['TS'])
+    scap_lat = scapula_cs_isb(trial.subject.scapula_landmarks[scap_lateral], trial.subject.scapula_landmarks['IA'],
+                              trial.subject.scapula_landmarks['TS'])
+    scap_gc_lat = ht_inv(scap_gc) @ scap_lat
+    scap = PoseTrajectory.from_ht(scap.ht @ scap_gc_lat[np.newaxis, ...], dt=scap.dt, frame_nums=scap.frame_nums)
 
     ht = hum.in_trajectory(torso)
     gh = hum.in_trajectory(scap)
@@ -78,6 +77,31 @@ def extract_sub_rot_norm(shoulder_traj: ShoulderTrajInterp, traj_def: str, y_def
     return y-y0
 
 
+def sub_rot_at_max_elev(shoulder_traj: ShoulderTrajInterp, traj_def: str, decomp_method: str,
+                        sub_rot: Union[int, None], norm_by: str) -> np.ndarray:
+    """Extract value at max HT elevation and normalize the specified subrotation given an interpolated shoulder
+    trajectory (shoulder_traj), joint (traj_def, e.g. ht, gh, st), interpolation (y_def, e.g. common_fine_up),
+    decomposition method (decomp_method, e.g. euler.ht_isb), subrotation (sub_rot, e.g. 0, 1, 2, None), and
+    normalization section (norm_by, e.g. traj, up, down, ...)."""
+    y = extract_sub_rot(shoulder_traj, traj_def, 'up', decomp_method, sub_rot)[-1]
+    # first extract ht, gh, or st
+    joint_traj = getattr(shoulder_traj, traj_def)
+    if decomp_method == 'true_axial_rot':
+        if norm_by == 'traj':
+            y0 = getattr(joint_traj, 'axial_rot')[0]
+        else:
+            y0 = getattr(joint_traj, 'axial_rot_' + norm_by)[0]
+    elif decomp_method == 'induced_axial_rot':
+        if norm_by == 'traj':
+            y0 = getattr(joint_traj, 'induced_axial_rot')[0, sub_rot]
+        else:
+            y0 = getattr(joint_traj, 'induced_axial_rot_' + norm_by)[0, sub_rot]
+    else:
+        y0 = rgetattr(getattr(joint_traj, norm_by), decomp_method)[0, sub_rot]
+
+    return y-y0
+
+
 def ht_min_max(df_row: pd.Series) -> Tuple[float, float, float, int]:
     """Compute minimum HT elevation during elevation and depression, as well as maximum HT elevation and the frame index
     where it occurs."""
@@ -88,7 +112,7 @@ def ht_min_max(df_row: pd.Series) -> Tuple[float, float, float, int]:
     return min_elev_elev, min_elev_depress, max_elev, max_elev_idx
 
 
-def prepare_db(db: pd.DataFrame, torso_def: str, use_ac: bool, dtheta_fine: float, dtheta_coarse: float,
+def prepare_db(db: pd.DataFrame, torso_def: str, scap_lateral: str, dtheta_fine: float, dtheta_coarse: float,
                ht_endpts_common: Union[Sequence, np.ndarray], should_fill: bool = True,
                should_clean: bool = True) -> None:
     """Prepared database for analysis by computing HT, ST, and GH trajectories; excluding and filling frames;
@@ -97,7 +121,7 @@ def prepare_db(db: pd.DataFrame, torso_def: str, use_ac: bool, dtheta_fine: floa
         return ShoulderTrajInterp(df_row['Trial_Name'], df_row['ht'], df_row['gh'], df_row['st'],
                                   df_row['up_down_analysis'], fine_dt, coarse_dt, common_ht_endpts)
 
-    db['ht'], db['gh'], db['st'] = zip(*db['Trial'].apply(get_trajs, args=[db.attrs['dt'], torso_def, use_ac]))
+    db['ht'], db['gh'], db['st'] = zip(*db['Trial'].apply(get_trajs, args=[db.attrs['dt'], torso_def, scap_lateral]))
     if should_clean:
         clean_up_trials(db)
     if should_fill:
@@ -110,7 +134,7 @@ def clean_up_trials(db: pd.DataFrame) -> None:
     """Exclude frames from trials where subject has not gotten ready to perform thumb-up elevation yet."""
     # the subject is axially rotating their arm to prepare for a thumb up arm elevation in the first 47 frames for SA,
     # and first 69 frames for CA
-    clean_up_tasks = {'N022_SA_t01': 47, 'N022_CA_t01': 69}
+    clean_up_tasks = {'O45_009_SA_t01': 47, 'O45_009_CA_t01': 69}
     for trial_name, start_frame in clean_up_tasks.items():
         ht = db.loc[trial_name, 'ht']
         gh = db.loc[trial_name, 'gh']
@@ -160,12 +184,13 @@ def fill_trials(db: pd.DataFrame) -> None:
 
     # this trial is extremely close to reaching the 25 deg ht elevation mark both up (25.28) and down (26.17), so I have
     # elected to fill it because it will give us this datapoint for the rest of the trials
-    db.loc['N003A_SA_t01', 'ht'] = fill_traj(db.loc['N003A_SA_t01', 'ht'], 5, 5)
-    db.loc['N003A_SA_t01', 'gh'] = fill_traj(db.loc['N003A_SA_t01', 'gh'], 5, 5)
-    db.loc['N003A_SA_t01', 'st'] = fill_traj(db.loc['N003A_SA_t01', 'st'], 5, 5)
+    db.loc['U35_002_SA_t01', 'ht'] = fill_traj(db.loc['U35_002_SA_t01', 'ht'], 5, 5)
+    db.loc['U35_002_SA_t01', 'gh'] = fill_traj(db.loc['U35_002_SA_t01', 'gh'], 5, 5)
+    db.loc['U35_002_SA_t01', 'st'] = fill_traj(db.loc['U35_002_SA_t01', 'st'], 5, 5)
 
 
-def create_gh_traj_ludewig(df):
+def create_gh_traj_ludewig(df: pd.DataFrame) -> PoseTrajectory:
+    """Create GH PoseTrajectory from Elevation, PoE, Axial Rotation contained in df."""
     q_elev = q.from_rotation_vector(np.deg2rad(df['Elevation'].to_numpy())[..., np.newaxis] * np.array([1, 0, 0]))
     q_poe = q.from_rotation_vector(np.deg2rad(df['PoE'].to_numpy())[..., np.newaxis] * np.array([0, 0, 1]))
     q_axial = q.from_rotation_vector(np.deg2rad(df['Axial'].to_numpy())[..., np.newaxis] * np.array([0, 1, 0]))
@@ -177,7 +202,8 @@ def create_gh_traj_ludewig(df):
     return traj
 
 
-def create_st_traj_ludewig(df):
+def create_st_traj_ludewig(df: pd.DataFrame) -> PoseTrajectory:
+    """Create ST PoseTrajectory from Elevation, PoE, Axial Rotation contained in df."""
     q_repro = q.from_rotation_vector(np.deg2rad(df['ReProtraction'].to_numpy())[..., np.newaxis] * np.array([0, 1, 0]))
     q_latmed = q.from_rotation_vector(np.deg2rad(df['LatMedRot'].to_numpy())[..., np.newaxis] * np.array([1, 0, 0]))
     q_tilt = q.from_rotation_vector(np.deg2rad(df['Tilt'].to_numpy())[..., np.newaxis] * np.array([0, 0, 1]))
@@ -189,7 +215,9 @@ def create_st_traj_ludewig(df):
     return traj
 
 
-def read_ludewig_data(ludewig_files):
+def read_ludewig_data(ludewig_files: Dict[str, Dict[str, str]]) -> Dict[str, Dict[str, pd.DataFrame]]:
+    """Read Ludewig files and create dataframes from them gh/st:motion:file_name and
+    create gh/st:motion:pd.Dataframe."""
     convert_fnc = {'gh': create_gh_traj_ludewig, 'st': create_st_traj_ludewig}
     ludewig_data = {}
     for traj_name, motions in ludewig_files._asdict().items():
@@ -201,3 +229,11 @@ def read_ludewig_data(ludewig_files):
             df['true_axial'] = np.rad2deg(traj.true_axial_rot)
 
     return ludewig_data
+
+
+def subj_name_to_number(subject_name: str):
+    """Map subject_name to a number (int)."""
+    subj_num = int(subject_name.split('_')[1])
+    if subject_name[0] == 'O':
+        subj_num += 10
+    return subj_num

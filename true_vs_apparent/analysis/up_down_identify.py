@@ -4,11 +4,12 @@ increasing/decreasing range method for all trials.
 The path to a config directory (containing parameters.json) must be passed in as an argument. Within parameters.json the
 following keys must be present:
 
+output_dir: Directory where PDF records should be output.
 logger_name: Name of the loggger set up in logging.ini that will receive log messages from this script.
 biplane_vicon_db_dir: Path to the directory containing the biplane and vicon CSV files.
 excluded_trials: Trial names to exclude from analysis.
-output_dir: Directory where PDF records should be output.
-use_ac: Whether to use the AC or GC landmark when building the scapula CS.
+scap_lateral: Landmarks to utilize when defining the scapula's lateral (+Z) axis (AC, PLA, GC).
+torso_def: Anatomical definition of the torso: v3d for Visual3D definition, isb for ISB definition.
 """
 
 import numpy as np
@@ -93,7 +94,6 @@ if __name__ == '__main__':
 
     # relevant parameters
     output_path = Path(params.output_dir)
-    use_ac = bool(distutils.util.strtobool(params.use_ac))
 
     # logging
     fileConfig(config_dir / 'logging.ini', disable_existing_loggers=False)
@@ -102,8 +102,8 @@ if __name__ == '__main__':
     db_elev = db.loc[db['Trial_Name'].str.contains('_CA_|_SA_|_FE_')].copy()
 
     # compute min and max ht elevation for each subject
-    db_elev['ht'], db_elev['gh'], db_elev['st'] = zip(*db_elev['Trial'].
-                                                      apply(get_trajs, args=[db.attrs['dt'], params.torso_def, use_ac]))
+    db_elev['ht'], db_elev['gh'], db_elev['st'] = \
+        zip(*db_elev['Trial'].apply(get_trajs, args=[db.attrs['dt'], params.torso_def, params.scap_lateral]))
     db_elev['up_down_analysis'] = db_elev['ht'].apply(analyze_up_down)
     db_elev['plotter'] = db_elev.apply(trial_plotter, axis=1)
     (db_elev['up_min_ht'], db_elev['up_max_ht'], db_elev['down_min_ht'], db_elev['down_max_ht']) = zip(

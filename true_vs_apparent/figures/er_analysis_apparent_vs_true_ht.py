@@ -1,4 +1,4 @@
-"""Compare GH yx'y'', yx'y'' normalized, and xz'y'' against true axial rotation for external rotation trials.
+"""Compare HT yx'y'', yx'y'' normalized, and xz'y'' against true axial rotation for external rotation trials.
 
 The path to a config directory (containing parameters.json) must be passed in as an argument. Within parameters.json the
 following keys must be present:
@@ -39,7 +39,7 @@ if __name__ == '__main__':
     import logging
     from logging.config import fileConfig
 
-    config_dir = Path(mod_arg_parser("Compare GH yx'y'', yx'y'' normalized, and xz'y'' against true axial rotation for "
+    config_dir = Path(mod_arg_parser("Compare HT yx'y'', yx'y'' normalized, and xz'y'' against true axial rotation for "
                                      "external rotation trials", __package__, __file__))
     params = get_params(config_dir / 'parameters.json')
 
@@ -79,7 +79,7 @@ if __name__ == '__main__':
     fig = plt.figure(figsize=(190 / 25.4, 150 / 25.4), dpi=params.dpi)
     axs = fig.subplots(2, 2)
 
-    ax_limits = [(-140, 15), (-110, 30)]
+    ax_limits = [(-145, 20), (-120, 37)]
     for row_idx, row in enumerate(axs):
         for col_idx, ax in enumerate(row):
             ax.xaxis.set_major_locator(plticker.MultipleLocator(base=10.0))
@@ -89,8 +89,8 @@ if __name__ == '__main__':
             style_axes(ax, x_label, y_label)
             axs[row_idx, col_idx].set_ylim(ax_limits[row_idx][0], ax_limits[row_idx][1])
 
-    spm_y = np.array([[13, 13], [27, 27]])
-    traj_name = 'gh'
+    spm_y = np.array([[18, 18], [35, 35]])
+    traj_name = 'ht'
     mean_left_lns = []
     mean_right_lns = []
     for idx_act, (activity, activity_df) in enumerate(db_er_endpts.groupby('Activity', observed=True)):
@@ -175,7 +175,7 @@ if __name__ == '__main__':
 
     # figure title and legend
     plt.tight_layout(pad=0.5, h_pad=1.5, w_pad=-0.5)
-    fig.suptitle('Apparent vs True GH Axial Rotation for ER-ADD and ER-ABD', x=0.4515, y=0.99, fontweight='bold')
+    fig.suptitle('Apparent vs True HT Axial Rotation for ER-ADD and ER-ABD', x=0.4515, y=0.99, fontweight='bold')
     plt.subplots_adjust(top=0.925)
     leg_left = fig.legend(mean_left_lns, ["True Axial", "xz'y''"], loc='upper left',
                           bbox_to_anchor=(0, 1), ncol=1, handlelength=1.2, handletextpad=0.3, columnspacing=0.6,
@@ -202,10 +202,10 @@ if __name__ == '__main__':
 
     # add axes titles
     _, y0, _, h = axs[0, 0].get_position().bounds
-    fig.text(0.5, y0 + h * 1.02, 'ER-ADD GH Axial Rotation', ha='center', fontsize=11, fontweight='bold')
+    fig.text(0.5, y0 + h * 1.02, 'ER-ADD HT Axial Rotation', ha='center', fontsize=11, fontweight='bold')
 
     _, y0, _, h = axs[1, 0].get_position().bounds
-    fig.text(0.5, y0 + h * 1.02, 'ER-ABD GH Axial Rotation', ha='center', fontsize=11, fontweight='bold')
+    fig.text(0.5, y0 + h * 1.02, 'ER-ABD HT Axial Rotation', ha='center', fontsize=11, fontweight='bold')
 
     make_interactive()
 

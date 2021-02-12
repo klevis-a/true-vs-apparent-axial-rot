@@ -6,7 +6,14 @@ following keys must be present:
 logger_name: Name of the loggger set up in logging.ini that will receive log messages from this script.
 biplane_vicon_db_dir: Path to the directory containing the biplane and vicon CSV files.
 excluded_trials: Trial names to exclude from analysis.
-use_ac: Whether to use the AC or GC landmark when building the scapula CS.
+scap_lateral: Landmarks to utilize when defining the scapula's lateral (+Z) axis (AC, PLA, GC).
+torso_def: Anatomical definition of the torso: v3d for Visual3D definition, isb for ISB definition.
+dtheta_fine: Incremental angle (deg) to use for fine interpolation between minimum and maximum HT elevation analyzed.
+dtheta_coarse: Incremental angle (deg) to use for coarse interpolation between minimum and maximum HT elevation analyzed.
+min_elev: Minimum HT elevation angle (deg) utilized for analysis that encompasses all trials.
+max_elev: Maximum HT elevation angle (deg) utilized for analysis that encompasses all trials.
+parametric: Whether to use a parametric (true) or non-parametric statistical test (false).
+backend: Matplotlib backend to use for plotting (e.g. Qt5Agg, macosx, etc.).
 """
 
 if __name__ == '__main__':
@@ -21,7 +28,8 @@ if __name__ == '__main__':
     import spm1d
     from true_vs_apparent.common.plot_utils import init_graphing, make_interactive, mean_sd_plot, spm_plot, style_axes
     from true_vs_apparent.common.database import create_db, BiplaneViconSubject, pre_fetch
-    from true_vs_apparent.common.analysis_utils import prepare_db, extract_sub_rot, extract_sub_rot_norm
+    from true_vs_apparent.common.analysis_utils import (prepare_db, extract_sub_rot, extract_sub_rot_norm,
+                                                        sub_rot_at_max_elev)
     from true_vs_apparent.common.json_utils import get_params
     from true_vs_apparent.common.arg_parser import mod_arg_parser
     import logging
@@ -41,14 +49,13 @@ if __name__ == '__main__':
 
     # relevant parameters
     output_path = Path(params.output_dir)
-    use_ac = bool(distutils.util.strtobool(params.use_ac))
 
     # logging
     fileConfig(config_dir / 'logging.ini', disable_existing_loggers=False)
     log = logging.getLogger(params.logger_name)
 
     db_elev = db.loc[db['Trial_Name'].str.contains('_CA_|_SA_|_FE_')].copy()
-    prepare_db(db_elev, params.torso_def, use_ac, params.dtheta_fine, params.dtheta_coarse,
+    prepare_db(db_elev, params.torso_def, params.scap_lateral, params.dtheta_fine, params.dtheta_coarse,
                [params.min_elev, params.max_elev])
 
     #%%
@@ -96,9 +103,17 @@ if __name__ == '__main__':
             extract_sub_rot, args=['gh', 'common_fine_up', 'euler.gh_phadke', 2]), axis=0)
         all_traj_true = np.stack(activity_df['traj_interp'].apply(
             extract_sub_rot, args=['gh', 'common_fine_up', 'true_axial_rot', None]), axis=0)
+
         all_traj_isb = all_traj_isb - all_traj_isb[:, 0][..., np.newaxis]
         all_traj_phadke = all_traj_phadke - all_traj_phadke[:, 0][..., np.newaxis]
         all_traj_true = all_traj_true - all_traj_true[:, 0][..., np.newaxis]
+
+        all_traj_isb_max = np.stack(activity_df['traj_interp'].apply(
+            sub_rot_at_max_elev, args=['gh', 'euler.gh_isb', 2, 'common_fine_up']), axis=0)
+        all_traj_phadke_max = np.stack(activity_df['traj_interp'].apply(
+            sub_rot_at_max_elev, args=['gh', 'euler.gh_phadke', 2, 'common_fine_up']), axis=0)
+        all_traj_true_max = np.stack(activity_df['traj_interp'].apply(
+            sub_rot_at_max_elev, args=['gh', 'true_axial_rot', None, 'common_fine_up']), axis=0)
 
         # means and standard deviations
         isb_mean = np.rad2deg(np.mean(all_traj_isb, axis=0))
@@ -107,6 +122,13 @@ if __name__ == '__main__':
         isb_sd = np.rad2deg(np.std(all_traj_isb, ddof=1, axis=0))
         phadke_sd = np.rad2deg(np.std(all_traj_phadke, ddof=1, axis=0))
         true_sd = np.rad2deg(np.std(all_traj_true, ddof=1, axis=0))
+
+        isb_max_mean = np.rad2deg(np.mean(all_traj_isb_max, axis=0))
+        phadke_max_mean = np.rad2deg(np.mean(all_traj_phadke_max, axis=0))
+        true_max_mean = np.rad2deg(np.mean(all_traj_true_max, axis=0))
+        isb_max_sd = np.rad2deg(np.std(all_traj_isb_max, ddof=1, axis=0))
+        phadke_max_sd = np.rad2deg(np.std(all_traj_phadke_max, ddof=1, axis=0))
+        true_max_sd = np.rad2deg(np.std(all_traj_true_max, ddof=1, axis=0))
 
         # spm
         isb_vs_true = spm_test(all_traj_isb[:, 1:], all_traj_true[:, 1:]).inference(alpha, two_tailed=True,
@@ -127,6 +149,13 @@ if __name__ == '__main__':
         isb_ln = mean_sd_plot(axs_diff[cur_row, 0], x, isb_mean, isb_sd,
                               dict(color=color_map.colors[0], alpha=0.3),
                               dict(color=color_map.colors[0], marker=markers[0], markevery=20))
+
+        axs_diff[cur_row, 0].errorbar(x[-1] + (x[-1] - x[0]) * 0.1, isb_max_mean, yerr=isb_max_sd,
+                                      color=color_map.colors[0], marker=markers[0], capsize=3)
+        axs_diff[cur_row, 0].errorbar(x[-1] + (x[-1] - x[0]) * 0.14, phadke_max_mean, yerr=phadke_max_sd,
+                                      color=color_map.colors[1], marker=markers[1], capsize=3)
+        axs_diff[cur_row, 0].errorbar(x[-1] + (x[-1] - x[0]) * 0.12, true_max_mean, yerr=true_max_sd,
+                                      color=color_map.colors[2], marker=markers[2], capsize=3)
 
         # plot spm
         isb_t_ln = spm_plot(axs_diff[cur_row, 1], x[1:], isb_vs_true, dict(color=color_map.colors[0], alpha=0.25),

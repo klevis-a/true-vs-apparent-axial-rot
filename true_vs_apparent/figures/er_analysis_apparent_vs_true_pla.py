@@ -1,4 +1,5 @@
-"""Compare GH yx'y'', yx'y'' normalized, and xz'y'' against true axial rotation for external rotation trials.
+"""Compare GH yx'y'', yx'y'' normalized, and xz'y'' against true axial rotation for external rotation trials when using
+the acromial angle to define the lateral direction of the scapula (+Z).
 
 The path to a config directory (containing parameters.json) must be passed in as an argument. Within parameters.json the
 following keys must be present:
@@ -40,14 +41,15 @@ if __name__ == '__main__':
     from logging.config import fileConfig
 
     config_dir = Path(mod_arg_parser("Compare GH yx'y'', yx'y'' normalized, and xz'y'' against true axial rotation for "
-                                     "external rotation trials", __package__, __file__))
+                                     "external rotation trials using acromial angle", __package__, __file__))
     params = get_params(config_dir / 'parameters.json')
 
     if not bool(distutils.util.strtobool(os.getenv('VARS_RETAINED', 'False'))):
         # ready db
         db = create_db(params.biplane_vicon_db_dir, BiplaneViconSubject, include_anthro=True)
         db['age_group'] = db['Age'].map(lambda age: '<35' if age < 40 else '>45')
-        exc_trials = ["O45_003_CA_t01", "O45_003_SA_t02", "O45_003_FE_t02", "U35_010_FE_t01"]
+        exc_trials = ["O45_003_CA_t01", "O45_003_SA_t02", "O45_003_FE_t02", "U35_010_FE_t01", "O45_002_CA_t02",
+                      "O45_002_SA_t03", "O45_001_ERaR_t01", "O45_002_ERaR_t02"]
         db = db[~db['Trial_Name'].str.contains('|'.join(exc_trials))]
         db['Trial'].apply(pre_fetch)
 
@@ -59,7 +61,7 @@ if __name__ == '__main__':
     log = logging.getLogger(params.logger_name)
 
     # ready db
-    db_er_endpts = ready_er_db(db, params.torso_def, 'GC', params.erar_endpts, params.era90_endpts,
+    db_er_endpts = ready_er_db(db, params.torso_def, 'PLA', params.erar_endpts, params.era90_endpts,
                                params.dtheta_fine)
 
 #%%
@@ -79,7 +81,7 @@ if __name__ == '__main__':
     fig = plt.figure(figsize=(190 / 25.4, 150 / 25.4), dpi=params.dpi)
     axs = fig.subplots(2, 2)
 
-    ax_limits = [(-140, 15), (-110, 30)]
+    ax_limits = [(-165, 15), (-105, 30)]
     for row_idx, row in enumerate(axs):
         for col_idx, ax in enumerate(row):
             ax.xaxis.set_major_locator(plticker.MultipleLocator(base=10.0))
@@ -197,7 +199,7 @@ if __name__ == '__main__':
         axs[i, 1].set_yticklabels(empty_string_labels)
 
     # add arrows indicating direction
-    axs[0, 0].arrow(10, -72, 0, -32, length_includes_head=True, head_width=2, head_length=2)
+    axs[0, 0].arrow(10, -72, 0, -10, length_includes_head=True, head_width=2, head_length=2)
     axs[0, 0].text(0, -70, 'External\nRotation', rotation=90, va='top', ha='left', fontsize=10)
 
     # add axes titles

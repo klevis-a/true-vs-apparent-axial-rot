@@ -1,0 +1,33 @@
+{
+  "logger_name": "true_vs_apparent",
+  "biplane_vicon_db_dir": "C:\\Users\\user\\Desktop\\zenodo_download\\database",
+  "era90_endpts": "data\\ERa90_Endpoints.csv",
+  "erar_endpts": "data\\ERaR_Endpoints.csv",
+  "backend": "TkAgg",
+  "trial_name": "O45_006_FE_t01",
+  "trajectory": "gh",
+  "decomp_method": "isb",
+  "output_dir": "C:\\Users\\user\\Desktop\\output",
+  "excluded_trials": ["O45_003_CA_t01", "O45_003_SA_t02", "O45_003_FE_t02", "U35_010_FE_t01"],
+  "torso_def": "isb",
+  "scap_lateral": "GC",
+  "min_elev": 25,
+  "max_elev": 130,
+  "dtheta_fine": 0.25,
+  "dtheta_coarse": 5,
+  "ludewig_data":{
+    "gh": {
+      "ca": "data\\Ludewig_GH_CA_Raising.csv",
+      "sa": "data\\Ludewig_GH_SA_Raising.csv",
+      "fe": "data\\Ludewig_GH_FE_Raising.csv"
+    },
+    "st": {
+      "ca": "data\\Ludewig_ST_CA_Raising.csv",
+      "sa": "data\\Ludewig_ST_SA_Raising.csv",
+      "fe": "data\\Ludewig_ST_FE_Raising.csv"
+    }
+  },
+  "parametric": "True",
+  "dpi": 100,
+  "fig_file": ""
+}
