@@ -84,6 +84,9 @@ def sub_rot_at_max_elev(shoulder_traj: ShoulderTrajInterp, traj_def: str, decomp
     decomposition method (decomp_method, e.g. euler.ht_isb), subrotation (sub_rot, e.g. 0, 1, 2, None), and
     normalization section (norm_by, e.g. traj, up, down, ...)."""
     y = extract_sub_rot(shoulder_traj, traj_def, 'up', decomp_method, sub_rot)[-1]
+    if norm_by is None:
+        return y
+
     # first extract ht, gh, or st
     joint_traj = getattr(shoulder_traj, traj_def)
     if decomp_method == 'true_axial_rot':
@@ -100,6 +103,14 @@ def sub_rot_at_max_elev(shoulder_traj: ShoulderTrajInterp, traj_def: str, decomp
         y0 = rgetattr(getattr(joint_traj, norm_by), decomp_method)[0, sub_rot]
 
     return y-y0
+
+
+def sub_rot_at_min_elev(shoulder_traj: ShoulderTrajInterp, traj_def: str, decomp_method: str,
+                        sub_rot: Union[int, None]) -> np.ndarray:
+    """Extract value at min HT elevation and normalize the specified subrotation given an interpolated shoulder
+    trajectory (shoulder_traj), joint (traj_def, e.g. ht, gh, st), interpolation (y_def, e.g. common_fine_up),
+    decomposition method (decomp_method, e.g. euler.ht_isb), subrotation (sub_rot, e.g. 0, 1, 2, None)."""
+    return extract_sub_rot(shoulder_traj, traj_def, 'up', decomp_method, sub_rot)[0]
 
 
 def ht_min_max(df_row: pd.Series) -> Tuple[float, float, float, int]:

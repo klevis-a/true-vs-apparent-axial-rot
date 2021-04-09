@@ -230,24 +230,13 @@ if __name__ == '__main__':
                                 labelspacing=0.4, handletextpad=0.5, columnspacing=0.75, borderpad=0.2)
 
     # this is a hack so the yx'y'' PoE Adjusted label spans multiple columns
-    leg_right2 = fig_diff.legend([leg_right_mean[-1]], ["yx'y'' PoE Adjusted"])
+    leg_right2 = fig_diff.legend([leg_right_mean[-1]], ["Swing-Spin"])
     leg_right2.remove()
     leg_right._legend_box._children.append(leg_right2._legend_handle_box)
     leg_right2._legend_box.stale = True
 
     # set x ticks
-    if int(params.min_elev) % 10 == 0:
-        x_ticks_start = int(params.min_elev)
-    else:
-        x_ticks_start = int(params.min_elev) - int(params.min_elev) % 10
-
-    if int(params.max_elev) % 10 == 0:
-        x_ticks_end = int(params.max_elev)
-    else:
-        x_ticks_end = int(params.max_elev) + (10 - int(params.max_elev) % 10)
-    x_ticks = np.arange(x_ticks_start, x_ticks_end + 1, 20)
-    x_ticks = np.sort(np.concatenate((x_ticks, np.array([params.min_elev, params.max_elev]))))
-    x_ticks = np.concatenate((x_ticks, [max_pos]))
+    x_ticks = [25, 40, 60, 80, 100, 120, 130, max_pos]
     for row in axs_diff:
         for ax in row:
             ax.set_xticks(x_ticks)

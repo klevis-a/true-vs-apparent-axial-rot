@@ -32,11 +32,11 @@ if __name__ == '__main__':
     import logging
     from logging.config import fileConfig
 
-    config_dir = Path(mod_arg_parser('DO NOT USE', __package__, __file__))
+    config_dir = Path(mod_arg_parser('Compare normalizing by first frame of trial versus start of always increasing HT '
+                                     'elevation.', __package__, __file__))
     params = get_params(config_dir / 'parameters.json')
 
-    if not bool(distutils.util.strtobool(os.getenv('Compare normalizing by first frame of trial versus start of always '
-                                                   'increasing HT elevation', 'False'))):
+    if not bool(distutils.util.strtobool(os.getenv('VARS_RETAINED', 'False'))):
         # ready db
         db = create_db(params.biplane_vicon_db_dir, BiplaneViconSubject, include_anthro=True)
         db['age_group'] = db['Age'].map(lambda age: '<35' if age < 40 else '>45')

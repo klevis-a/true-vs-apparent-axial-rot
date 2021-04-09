@@ -185,7 +185,7 @@ if __name__ == '__main__':
                            labelspacing=0.3, borderpad=0.2)
 
     # this is a hack so the yx'y'' PoE Adjusted label spans multiple columns
-    leg_right2 = fig.legend([mean_right_lns[-1]], ["yx'y'' PoE Adjusted"])
+    leg_right2 = fig.legend([mean_right_lns[-1]], ["Swing-Spin"])
     leg_right2.remove()
     leg_right._legend_box._children.append(leg_right2._legend_handle_box)
     leg_right2._legend_box.stale = True

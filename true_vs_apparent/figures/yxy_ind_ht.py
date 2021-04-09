@@ -66,7 +66,7 @@ if __name__ == '__main__':
     ax = fig.subplots(3, 1)
 
     for i in range(3):
-        style_axes(ax[i], 'Humerothoracic Elevation (Deg)' if i == 2 else None, 'Axial Rotation (Deg)')
+        style_axes(ax[i], 'Humerothoracic Elevation (Deg)' if i == 2 else None, 'Axial Orientation (Deg)')
         ax[i].xaxis.set_major_locator(ticker.MultipleLocator(base=20.0))
 
     act_row = {'ca': 0, 'sa': 1, 'fe': 2}

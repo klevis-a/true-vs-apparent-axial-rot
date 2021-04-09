@@ -30,7 +30,7 @@ if __name__ == '__main__':
                                                     style_axes, sig_filter, output_spm_p)
     from true_vs_apparent.common.database import create_db, BiplaneViconSubject, pre_fetch
     from true_vs_apparent.common.analysis_utils import (prepare_db, extract_sub_rot_norm, sub_rot_at_max_elev,
-                                                        subj_name_to_number)
+                                                        subj_name_to_number, extract_sub_rot, sub_rot_at_min_elev)
     from true_vs_apparent.common.json_utils import get_params
     from true_vs_apparent.common.arg_parser import mod_arg_parser
     import logging
@@ -79,18 +79,18 @@ if __name__ == '__main__':
     init_graphing(params.backend)
     plt.close('all')
 
-    fig = plt.figure(figsize=(90 / 25.4, 230 / 25.4), dpi=params.dpi)
-    axs = fig.subplots(4, 1)
+    fig = plt.figure(figsize=(190 / 25.4, 230 / 25.4), dpi=params.dpi)
+    axs = fig.subplots(4, 2)
 
     # style axes, add x and y labels
-    style_axes(axs[0], None, 'Axial Rotation (Deg)')
-    style_axes(axs[1], None, 'Axial Rotation (Deg)')
-    style_axes(axs[2], None, 'Axial Rotation (Deg)')
-    style_axes(axs[3], 'Humerothoracic Elevation (Deg)', 'Axial Rotation (Deg)')
+    for i in range(4):
+        for j in range(2):
+            style_axes(axs[i, j], 'Humerothoracic Elevation (Deg)' if i == 3 else None,
+                       'Axial Orientation (deg)' if j == 0 else 'Axial Rotation (Deg)')
 
     # set axes limits
-    for i in range(3):
-        axs[i].set_ylim(-45, 55)
+    for i in range(4):
+        axs[i, 1].set_ylim(-45, 55)
 
     all_traj_isb_rm = np.stack(db_elev_equal['traj_interp'].apply(
         extract_sub_rot_norm, args=['gh', 'common_fine_up', 'euler.gh_isb', 2, 'up']), axis=0)
@@ -114,10 +114,10 @@ if __name__ == '__main__':
     isb_norm_x_sig = sig_filter(spm_one_way_rm_isb_norm, x)
     phadke_x_sig = sig_filter(spm_one_way_rm_phadke, x)
 
-    axs[0].plot(true_x_sig, np.repeat(50, true_x_sig.size), color='k', lw=2)
-    axs[1].plot(phadke_x_sig, np.repeat(50, phadke_x_sig.size), color='k', lw=2)
-    axs[2].plot(isb_x_sig, np.repeat(50, isb_x_sig.size), color='k', lw=2)
-    axs[3].plot(isb_norm_x_sig, np.repeat(50, isb_norm_x_sig.size), color='k', lw=2)
+    axs[0, 1].plot(true_x_sig, np.repeat(50, true_x_sig.size), color='k', lw=2)
+    axs[1, 1].plot(phadke_x_sig, np.repeat(50, phadke_x_sig.size), color='k', lw=2)
+    axs[2, 1].plot(isb_x_sig, np.repeat(50, isb_x_sig.size), color='k', lw=2)
+    axs[3, 1].plot(isb_norm_x_sig, np.repeat(50, isb_norm_x_sig.size), color='k', lw=2)
 
     print('ANOVA')
     print('True Axial')
@@ -183,11 +183,82 @@ if __name__ == '__main__':
         print(output_spm_p(sa_vs_fe))
 
     # plot
+    min_pos = 15
     max_pos = 140
     mean_lns = []
     t_lns = []
     activities = []
     act_order_t = {'ca': 1, 'sa': 2, 'fe': 3}
+    for idx, (activity, activity_df) in enumerate(db_elev.groupby('Activity', observed=True)):
+        all_traj_isb_act = np.stack(activity_df['traj_interp'].apply(
+            extract_sub_rot, args=['gh', 'common_fine_up', 'euler.gh_isb', 2]), axis=0)
+        all_traj_isb_poe_act = np.stack(activity_df['traj_interp'].apply(
+            extract_sub_rot, args=['gh', 'common_fine_up', 'euler.gh_isb', 0]), axis=0)
+        all_traj_phadke_act = np.stack(activity_df['traj_interp'].apply(
+            extract_sub_rot, args=['gh', 'common_fine_up', 'euler.gh_phadke', 2]), axis=0)
+        all_traj_isb_act_norm = all_traj_isb_act + all_traj_isb_poe_act
+
+        all_traj_isb_max = np.stack(activity_df['traj_interp'].apply(
+            sub_rot_at_max_elev, args=['gh', 'euler.gh_isb', 2, None]), axis=0)
+        all_traj_isb_poe_max = np.stack(activity_df['traj_interp'].apply(
+            sub_rot_at_max_elev, args=['gh', 'euler.gh_isb', 0, None]), axis=0)
+        all_traj_phadke_max = np.stack(activity_df['traj_interp'].apply(
+            sub_rot_at_max_elev, args=['gh', 'euler.gh_phadke', 2, None]), axis=0)
+        all_traj_isb_norm_max = all_traj_isb_max + all_traj_isb_poe_max
+
+        all_traj_isb_min = np.stack(activity_df['traj_interp'].apply(
+            sub_rot_at_min_elev, args=['gh', 'euler.gh_isb', 2]), axis=0)
+        all_traj_isb_poe_min = np.stack(activity_df['traj_interp'].apply(
+            sub_rot_at_min_elev, args=['gh', 'euler.gh_isb', 0]), axis=0)
+        all_traj_phadke_min = np.stack(activity_df['traj_interp'].apply(
+            sub_rot_at_min_elev, args=['gh', 'euler.gh_phadke', 2]), axis=0)
+        all_traj_isb_norm_min = all_traj_isb_min + all_traj_isb_poe_min
+
+        isb_mean_act = np.rad2deg(np.mean(all_traj_isb_act, axis=0))
+        isb_mean_norm_act = np.rad2deg(np.mean(all_traj_isb_act_norm, axis=0))
+        phadke_mean_act = np.rad2deg(np.mean(all_traj_phadke_act, axis=0))
+        isb_sd_act = np.rad2deg(np.std(all_traj_isb_act, ddof=1, axis=0))
+        isb_sd_norm_act = np.rad2deg(np.std(all_traj_isb_act_norm, ddof=1, axis=0))
+        phadke_sd_act = np.rad2deg(np.std(all_traj_phadke_act, ddof=1, axis=0))
+
+        isb_mean_max = np.rad2deg(np.mean(all_traj_isb_max, axis=0))
+        isb_norm_mean_max = np.rad2deg(np.mean(all_traj_isb_norm_max, axis=0))
+        phadke_mean_max = np.rad2deg(np.mean(all_traj_phadke_max, axis=0))
+        isb_sd_max = np.rad2deg(np.std(all_traj_isb_max, ddof=1, axis=0))
+        isb_norm_sd_max = np.rad2deg(np.std(all_traj_isb_norm_max, ddof=1, axis=0))
+        phadke_sd_max = np.rad2deg(np.std(all_traj_phadke_max, ddof=1, axis=0))
+
+        isb_mean_min = np.rad2deg(np.mean(all_traj_isb_min, axis=0))
+        isb_norm_mean_min = np.rad2deg(np.mean(all_traj_isb_norm_min, axis=0))
+        phadke_mean_min = np.rad2deg(np.mean(all_traj_phadke_min, axis=0))
+        isb_sd_min = np.rad2deg(np.std(all_traj_isb_min, ddof=1, axis=0))
+        isb_norm_sd_min = np.rad2deg(np.std(all_traj_isb_norm_min, ddof=1, axis=0))
+        phadke_sd_min = np.rad2deg(np.std(all_traj_phadke_min, ddof=1, axis=0))
+
+        # plot mean +- sd
+        shaded = dict(color=color_map.colors[idx], alpha=0.25)
+        line = dict(color=color_map.colors[idx], marker=markers[idx], markevery=20)
+        if activity == 'SA':
+            shaded['hatch'] = '...'
+        phadke_ln = mean_sd_plot(axs[1, 0], x, phadke_mean_act, phadke_sd_act, shaded, line)
+        isb_ln = mean_sd_plot(axs[2, 0], x, isb_mean_act, isb_sd_act, shaded, line)
+        isb_norm_ln = mean_sd_plot(axs[3, 0], x, isb_mean_norm_act, isb_sd_norm_act, shaded, line)
+
+        # plot endpoints
+        axs[1, 0].errorbar(max_pos + act_order[activity] * 3, phadke_mean_max, yerr=phadke_sd_max,
+                           color=color_map.colors[idx], marker=markers[2], capsize=3)
+        axs[2, 0].errorbar(max_pos + act_order[activity] * 3, isb_mean_max, yerr=isb_sd_max,
+                           color=color_map.colors[idx], marker=markers[2], capsize=3)
+        axs[3, 0].errorbar(max_pos + act_order[activity] * 3, isb_norm_mean_max, yerr=isb_norm_sd_max,
+                           color=color_map.colors[idx], marker=markers[2], capsize=3)
+
+        axs[1, 0].errorbar(min_pos + act_order[activity] * 3, phadke_mean_min, yerr=phadke_sd_max,
+                           color=color_map.colors[idx], marker=markers[2], capsize=3)
+        axs[2, 0].errorbar(min_pos + act_order[activity] * 3, isb_mean_min, yerr=isb_sd_max,
+                           color=color_map.colors[idx], marker=markers[2], capsize=3)
+        axs[3, 0].errorbar(min_pos + act_order[activity] * 3, isb_norm_mean_min, yerr=isb_norm_sd_max,
+                           color=color_map.colors[idx], marker=markers[2], capsize=3)
+
     print('AGAINST ZERO')
     for idx, (activity, activity_df) in enumerate(db_elev.groupby('Activity', observed=True)):
         print(activity)
@@ -234,23 +305,23 @@ if __name__ == '__main__':
         line = dict(color=color_map.colors[idx], marker=markers[idx], markevery=20)
         if activity == 'SA':
             shaded['hatch'] = '...'
-        true_ln = mean_sd_plot(axs[0], x, true_mean_act, true_sd_act, shaded, line)
-        phadke_ln = mean_sd_plot(axs[1], x, phadke_mean_act, phadke_sd_act, shaded, line)
-        isb_ln = mean_sd_plot(axs[2], x, isb_mean_act, isb_sd_act, shaded, line)
-        isb_norm_ln = mean_sd_plot(axs[3], x, isb_mean_norm_act, isb_sd_norm_act, shaded, line)
+        true_ln = mean_sd_plot(axs[0, 1], x, true_mean_act, true_sd_act, shaded, line)
+        phadke_ln = mean_sd_plot(axs[1, 1], x, phadke_mean_act, phadke_sd_act, shaded, line)
+        isb_ln = mean_sd_plot(axs[2, 1], x, isb_mean_act, isb_sd_act, shaded, line)
+        isb_norm_ln = mean_sd_plot(axs[3, 1], x, isb_mean_norm_act, isb_sd_norm_act, shaded, line)
 
         mean_lns.append(true_ln[0])
         activities.append(activity)
 
         # plot endpoints
-        axs[0].errorbar(max_pos + act_order[activity] * 3, true_mean_max, yerr=true_sd_max,
-                        color=color_map.colors[idx], marker=markers[2], capsize=3)
-        axs[1].errorbar(max_pos + act_order[activity] * 3, phadke_mean_max, yerr=phadke_sd_max,
-                        color=color_map.colors[idx], marker=markers[2], capsize=3)
-        axs[2].errorbar(max_pos + act_order[activity] * 3, isb_mean_max, yerr=isb_sd_max,
-                        color=color_map.colors[idx], marker=markers[2], capsize=3)
-        axs[3].errorbar(max_pos + act_order[activity] * 3, isb_norm_mean_max, yerr=isb_norm_sd_max,
-                        color=color_map.colors[idx], marker=markers[2], capsize=3)
+        axs[0, 1].errorbar(max_pos + act_order[activity] * 3, true_mean_max, yerr=true_sd_max,
+                           color=color_map.colors[idx], marker=markers[2], capsize=3)
+        axs[1, 1].errorbar(max_pos + act_order[activity] * 3, phadke_mean_max, yerr=phadke_sd_max,
+                           color=color_map.colors[idx], marker=markers[2], capsize=3)
+        axs[2, 1].errorbar(max_pos + act_order[activity] * 3, isb_mean_max, yerr=isb_sd_max,
+                           color=color_map.colors[idx], marker=markers[2], capsize=3)
+        axs[3, 1].errorbar(max_pos + act_order[activity] * 3, isb_norm_mean_max, yerr=isb_norm_sd_max,
+                           color=color_map.colors[idx], marker=markers[2], capsize=3)
 
         # spm
         true_vs_zero = spm_test(all_traj_true_act, 0).inference(alpha, two_tailed=True, **infer_params)
@@ -282,60 +353,65 @@ if __name__ == '__main__':
         phadke_zero_x_sig = sig_filter(phadke_vs_zero, x)
         isb_zero_x_sig = sig_filter(isb_vs_zero, x)
         isb_norm_zero_x_sig = sig_filter(isb_norm_vs_zero, x)
-        true_zro_t_ln = axs[0].plot(true_zero_x_sig, np.repeat(50 - act_order_t[activity.lower()] * 3,
-                                                               true_zero_x_sig.size), color=color_map.colors[idx], lw=2)
-        axs[1].plot(phadke_zero_x_sig, np.repeat(50 - act_order_t[activity.lower()] * 3, phadke_zero_x_sig.size),
-                    color=color_map.colors[idx], lw=2)
-        axs[2].plot(isb_zero_x_sig, np.repeat(50 - act_order_t[activity.lower()] * 3, isb_zero_x_sig.size),
-                    color=color_map.colors[idx], lw=2)
-        axs[3].plot(isb_norm_zero_x_sig, np.repeat(50 - act_order_t[activity.lower()] * 3, isb_norm_zero_x_sig.size),
-                    color=color_map.colors[idx], lw=2)
+        true_zro_t_ln = axs[0, 1].plot(true_zero_x_sig,
+                                       np.repeat(50 - act_order_t[activity.lower()] * 3, true_zero_x_sig.size),
+                                       color=color_map.colors[idx], lw=2)
+        axs[1, 1].plot(phadke_zero_x_sig, np.repeat(50 - act_order_t[activity.lower()] * 3, phadke_zero_x_sig.size),
+                       color=color_map.colors[idx], lw=2)
+        axs[2, 1].plot(isb_zero_x_sig, np.repeat(50 - act_order_t[activity.lower()] * 3, isb_zero_x_sig.size),
+                       color=color_map.colors[idx], lw=2)
+        axs[3, 1].plot(isb_norm_zero_x_sig, np.repeat(50 - act_order_t[activity.lower()] * 3, isb_norm_zero_x_sig.size),
+                       color=color_map.colors[idx], lw=2)
 
         t_lns.append(true_zro_t_ln[0])
 
     # figure title and legend
     plt.tight_layout(pad=0.5, h_pad=1.5, w_pad=0.5)
-    fig.suptitle('GH Axial Rotation\nComparison by Plane', x=0.5, y=0.99, fontweight='bold')
-    plt.subplots_adjust(top=0.93)
-    leg_left = fig.legend([mean_lns[i] for i in [0, 2, 1]], [activities[i] for i in [0, 2, 1]], loc='upper right',
-                          bbox_to_anchor=(1, 0.97), ncol=1, handlelength=1.5, handletextpad=0.5, columnspacing=0.75,
+    fig.suptitle('GH Axial Orientation and Rotation\nComparison by Plane', x=0.25, y=0.95, fontweight='bold')
+    leg_left = fig.legend([mean_lns[i] for i in [0, 2, 1]], [activities[i] for i in [0, 2, 1]], loc='center',
+                          bbox_to_anchor=(0.25, 0.85), ncol=1, handlelength=1.5, handletextpad=0.5, columnspacing=0.75,
                           borderpad=0.2, labelspacing=0.4)
 
-    # set x ticks
-    if int(params.min_elev) % 10 == 0:
-        x_ticks_start = int(params.min_elev)
-    else:
-        x_ticks_start = int(params.min_elev) - int(params.min_elev) % 10
-
-    if int(params.max_elev) % 10 == 0:
-        x_ticks_end = int(params.max_elev)
-    else:
-        x_ticks_end = int(params.max_elev) + (10 - int(params.max_elev) % 10)
-    x_ticks = np.arange(x_ticks_start, x_ticks_end + 1, 20)
-    x_ticks = np.sort(np.concatenate((x_ticks, np.array([params.min_elev, params.max_elev]))))
-    x_ticks = np.concatenate((x_ticks, [max_pos]))
-    for ax in axs:
-        ax.set_xticks(x_ticks)
-        tick_labels = [str(i) for i in x_ticks]
+    x_ticks_right = [25, 40, 60, 80, 100, 120, 130, max_pos]
+    x_ticks_left = [15, 25, 40, 60, 80, 100, 120, 130, max_pos]
+    for i in range(4):
+        axs[i, 1].set_xticks(x_ticks_right)
+        tick_labels = [str(n) for n in x_ticks_right]
         tick_labels[-1] = 'Max'
-        ax.set_xticklabels(tick_labels)
+        axs[i, 1].set_xticklabels(tick_labels)
+
+    for i in range(4):
+        axs[i, 0].set_xticks(x_ticks_left)
+        tick_labels = [str(n) for n in x_ticks_left]
+        tick_labels[-1] = 'Max'
+        tick_labels[0] = 'Min'
+        axs[i, 0].set_xticklabels(tick_labels)
+
+    axs[0, 0].clear()
+    axs[0, 0].spines['left'].set_visible(False)
+    axs[0, 0].spines['bottom'].set_visible(False)
+    axs[0, 0].set_xticks([])
+    axs[0, 0].set_yticks([])
 
     # add arrows indicating direction
-    axs[0].arrow(37, 38, 0, -30, length_includes_head=True, head_width=2, head_length=2)
-    axs[0].text(23, 40, 'External\nRotation', rotation=90, va='top', ha='left', fontsize=10)
+    axs[0, 1].arrow(37, 38, 0, -30, length_includes_head=True, head_width=2, head_length=2)
+    axs[0, 1].text(23, 40, 'External\nRotation', rotation=90, va='top', ha='left', fontsize=10)
 
     # add axes titles
-    _, y0, _, h = axs[0].get_position().bounds
-    fig.text(0.5, y0 + h * 0.98, 'True Axial Rotation', ha='center', fontsize=11, fontweight='bold')
+    _, y0, _, h = axs[0, 1].get_position().bounds
+    fig.text(0.75, y0 + h * 0.98, 'True Axial Rotation', ha='center', fontsize=11, fontweight='bold')
 
-    _, y0, _, h = axs[1].get_position().bounds
-    fig.text(0.5, y0 + h * 1.03, "xz'y'' Axial Rotation", ha='center', fontsize=11, fontweight='bold')
+    _, y0, _, h = axs[1, 1].get_position().bounds
+    fig.text(0.75, y0 + h * 1.03, "xz'y'' Axial Rotation", ha='center', fontsize=11, fontweight='bold')
+    fig.text(0.25, y0 + h * 1.03, "xz'y'' Axial Orientation", ha='center', fontsize=11, fontweight='bold')
 
-    _, y0, _, h = axs[2].get_position().bounds
-    fig.text(0.5, y0 + h * 1.03, "yx'y'' (ISB) Axial Rotation", ha='center', fontsize=11, fontweight='bold')
+    _, y0, _, h = axs[2, 1].get_position().bounds
+    fig.text(0.75, y0 + h * 1.03, "yx'y'' (ISB) Axial Rotation", ha='center', fontsize=11, fontweight='bold')
+    fig.text(0.25, y0 + h * 1.03, "yx'y'' (ISB) Axial Orientation", ha='center', fontsize=11, fontweight='bold')
 
-    _, y0, _, h = axs[3].get_position().bounds
-    fig.text(0.5, y0 + h * 1.03, "PoE Adjusted yx'y'' Axial Rotation", ha='center', fontsize=11, fontweight='bold')
+    _, y0, _, h = axs[3, 1].get_position().bounds
+    fig.text(0.75, y0 + h * 1.03, "Swing-Spin Axial Rotation", ha='center', fontsize=11, fontweight='bold')
+    fig.text(0.25, y0 + h * 1.03, "Swing-Spin Axial Orientation", ha='center', fontsize=11, fontweight='bold')
     make_interactive()
 
     # normality tests
