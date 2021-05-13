@@ -1,4 +1,4 @@
-This repository contains code for reproducing results in the associated manuscript: "**Beyond Euler/Cardan analysis: true glenohumeral axial rotation during arm elevation and rotation**".
+This repository contains code for reproducing results in the associated manuscript: "**Beyond Euler/Cardan analysis: true glenohumeral axial rotation during arm elevation and rotation**" [1].
 
 #### Installation Instructions
 
@@ -38,7 +38,7 @@ The `true_axial_matlab_v3d_python` directory contains code for computing true ax
 
 The `config` directory contains configuration files.
 
-The `data` directory contains supporting data files. Two of these indicate the start and end frames that should be utilized when analyzing external rotation at 90&deg; of abduction and external rotation in adduction trials. The remaining 6 files contain glenohumeral and scapulothoracic mean trajectories for coronal plane abduction, scapular plane abduction, and forward elevation from [Ludewig et al.](https://pubmed.ncbi.nlm.nih.gov/19181982/) [1].
+The `data` directory contains supporting data files. Two of these indicate the start and end frames that should be utilized when analyzing external rotation at 90&deg; of abduction and external rotation in adduction trials. The remaining 6 files contain glenohumeral and scapulothoracic mean trajectories for coronal plane abduction, scapular plane abduction, and forward elevation from [Ludewig et al.](https://pubmed.ncbi.nlm.nih.gov/19181982/) [2].
 
 The `true_vs_apparent` directory contains code for reproducing the analysis of the associated manuscript. Within `true_vs_apparent` the following packages exist:
 
@@ -50,6 +50,6 @@ The `true_vs_apparent` directory contains code for reproducing the analysis of t
 
 This code is licensed according to the most restrictive license ([GPLv3](https://choosealicense.com/licenses/gpl-3.0/)) of the packages that it utilizes: [spm1d](https://github.com/0todd0000/spm1d).
 
+[1] K. Aliaj, K.B. Foreman, P.N. Chalmers, H.B. Henninger, Beyond Euler/Cardan analysis: True glenohumeral axial rotation during arm elevation and rotation, Gait & posture 88 (2021) 28-36. [https://www.sciencedirect.com/science/article/pii/S0966636221001776](https://www.sciencedirect.com/science/article/pii/S0966636221001776).
 
-
-[1] P.M. Ludewig, V. Phadke, J.P. Braman, D.R. Hassett, C.J. Cieminski, R.F. LaPrade, Motion of the shoulder complex during multiplanar humeral elevation, The Journal of bone and joint surgery. American volume 91(2) (2009) 378-89.
+[2] P.M. Ludewig, V. Phadke, J.P. Braman, D.R. Hassett, C.J. Cieminski, R.F. LaPrade, Motion of the shoulder complex during multiplanar humeral elevation, The Journal of bone and joint surgery. American volume 91(2) (2009) 378-89.
